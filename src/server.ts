@@ -1,10 +1,10 @@
 
 import * as grpc from '@grpc/grpc-js';
 import { Empty } from 'google-protobuf/google/protobuf/empty_pb';
-import { RoomName, Room } from './proto';
+import { RoomName, Room, RoomsList } from './proto';
 import { IServer, Client } from './types/server';
 import { PrismaClient } from '@prisma/client';
-import { v4 as uuidv4 } from 'uuid'
+import { v4 as uuidv4 } from 'uuid';
 
 
 export class RoomsServer implements IServer, Client<PrismaClient> {
@@ -13,6 +13,22 @@ export class RoomsServer implements IServer, Client<PrismaClient> {
     constructor(){
         this.client = new PrismaClient();
     }
+
+    async getRooms(_call: grpc.ServerUnaryCall<Empty, RoomsList>, callback: grpc.sendUnaryData<RoomsList>) {
+        const rooms = await this.client.room.findMany();
+        
+        const roomsList = new RoomsList();
+        roomsList.setRoomsList(rooms.map(room => {
+            const foundRoom = new Room();
+            foundRoom.setId(room.id);
+            foundRoom.setName(room.name);
+            foundRoom.setToken(room.token);
+
+            return foundRoom;
+        }));
+
+        callback(null, roomsList);
+    };
 
     async getRoom(call: grpc.ServerDuplexStream<RoomName, Room>): Promise<void> {
         call.on('data', async (roomName: RoomName) => {
